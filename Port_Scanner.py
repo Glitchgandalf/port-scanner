@@ -10,7 +10,15 @@ end_port = int(input("Enter end port (e.g., 1024): "))
 
 print(f"\nScanning {target} from port {start_port} to {end_port}...\n")
 
-# Loop through ports and scan
+# Open log file
+output_file = open("scan_results.txt", "w")
+
+# Lock to prevent threads from writing at the same time
+lock = threading.Lock()
+
+# Lock to prevent threads from writing at the same time
+lock = threading.Lock()
+
 def scan_port(port):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -18,14 +26,17 @@ def scan_port(port):
         result = sock.connect_ex((target, port))
 
         if result == 0:
-            print(f"Port {port} is OPEN")
-        # You can hide this else if you want cleaner output
-        # else:
-        # print(f"Port {port} is closed")
+            msg = f"Port {port} is OPEN"
+            print(f"{msg}")
+
+            # Use lock to safely write to file from threads
+            with lock:
+                with open("scan_results.txt", "a") as f:
+                    f.write(msg + "\n")
 
         sock.close()
     except:
-        pass  # Ignore failed scans
+        pass
 
 # Launch one thread per port
 for port in range(start_port, end_port + 1):
