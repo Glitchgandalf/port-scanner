@@ -1,5 +1,8 @@
+import time
+from datetime import datetime
 import socket
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 print("Basic Port Scanner")
 
@@ -13,11 +16,12 @@ print(f"\nScanning {target} from port {start_port} to {end_port}...\n")
 # Open log file
 output_file = open("scan_results.txt", "w")
 
-# Lock to prevent threads from writing at the same time
-lock = threading.Lock()
+start_time = time.time()
+open_ports = []
 
 # Lock to prevent threads from writing at the same time
 lock = threading.Lock()
+
 
 def scan_port(port):
     try:
@@ -26,10 +30,12 @@ def scan_port(port):
         result = sock.connect_ex((target, port))
 
         if result == 0:
-            msg = f"Port {port} is OPEN"
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            msg = f"[{timestamp}] Port {port} is OPEN"
             print(f"{msg}")
 
-            # Use lock to safely write to file from threads
+            open_ports.append(port)  # Track open ports
+
             with lock:
                 with open("scan_results.txt", "a") as f:
                     f.write(msg + "\n")
@@ -38,7 +44,23 @@ def scan_port(port):
     except:
         pass
 
-# Launch one thread per port
-for port in range(start_port, end_port + 1):
-    thread = threading.Thread(target=scan_port, args=(port,))
-    thread.start()
+# Limit to 100 concurrent threads (adjustable)
+with ThreadPoolExecutor(max_workers=100) as executor:
+    executor.map(scan_port, range(start_port, end_port + 1))
+
+
+    # Wait for all threads to finish
+main_thread = threading.current_thread()
+for t in threading.enumerate():
+    if t is not main_thread:
+        t.join()
+
+# Calculate scan time
+end_time = time.time()
+duration = round(end_time - start_time, 2)
+
+# Summary
+print("\nScan Summary")
+print(f"Open ports found: {len(open_ports)}")
+print(f"Ports scanned: {end_port - start_port + 1}")
+print(f"Duration: {duration} seconds")
