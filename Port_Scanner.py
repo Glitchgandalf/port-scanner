@@ -4,6 +4,12 @@ import socket
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+# ANSI color codes
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+RESET = "\033[0m"
+
 print("Basic Port Scanner")
 
 # Ask user for target and port range
@@ -23,22 +29,50 @@ open_ports = []
 lock = threading.Lock()
 
 
+def banner_grab(sock, port):
+    try:
+        sock.settimeout(1)
+        banner = sock.recv(1024).decode().strip()
+        print(f"[DEBUG] Banner on port {port}: {banner}")
+        return banner if banner else "No banner returned"
+    except:
+        return "No banner"
 def scan_port(port):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(0.5)
+        sock.settimeout(1)
         result = sock.connect_ex((target, port))
 
-        if result == 0:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            msg = f"[{timestamp}] Port {port} is OPEN"
-            print(f"{msg}")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            open_ports.append(port)  # Track open ports
+        if result == 0:
+            banner = banner_grab(sock, port)
+            msg = f"[{timestamp}] Port {port} is OPEN - {YELLOW}{banner}{RESET}"
+            print(f"{GREEN}{msg}{RESET}")
+
+            open_ports.append(port)
 
             with lock:
                 with open("scan_results.txt", "a") as f:
-                    f.write(msg + "\n")
+                    f.write(f"[{timestamp}] Port {port} is OPEN - {banner}\n")
+        else:
+            print(f"{RED}[{timestamp}] Port {port} is CLOSED{RESET}")
+
+        sock.close()
+
+    except Exception as e:
+        print(f"{RED}Error on port {port}: {e}{RESET}")
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        banner = banner_grab(sock, port)
+        msg = f"[{timestamp}] Port {port} is OPEN - {YELLOW}{banner}{RESET}"
+        print(f"{GREEN}{msg}{RESET}")
+
+        open_ports.append(port)
+
+        with lock:
+            with open("scan_results.txt", "a") as f:
+                f.write(msg + "\n")
 
         sock.close()
     except:
